@@ -9,14 +9,20 @@ public interface Decision
 
 public class AIGuard : MonoBehaviour
 {
-    Agent agent;
+    public Agent agent;
     public Decision root;
     // Start is called before the first frame update
     void Start()
     {
-        agent = GetComponent<Agent>();
-        root = new Discovered(agent, new thiefCaught(agent, new Patrol(agent), new Chase(agent)),
-                new Waypoint(agent, new newWayPoint(agent), new seekWayPoint(agent)));
+        root = new Discovered(agent, 
+                new thiefCaught(agent, 
+                    new newWayPoint(agent), 
+                    new Seek(agent)),
+                new Waypoint(agent, 
+                    new newWayPoint(agent), 
+                    new HavePath(agent, 
+                        new seekWayPoint(agent),
+                        new newWayPoint(agent))));
     }
 
     // Update is called once per frame
@@ -62,26 +68,26 @@ public class Discovered : Decision // question node // discovered thief
     bool thiefInView(Agent agent)
     {
         Ray ray = new Ray(agent.transform.position, agent.transform.forward);
-        if (agent.target.position.x > agent.transform.forward.x - 2 && agent.target.position.x < agent.transform.forward.x + 2 && Physics.Raycast(ray, out RaycastHit hit, 4))
+        if ((agent.target.position.x > agent.transform.forward.x - 2 || agent.target.position.x < agent.transform.forward.x + 2) && Physics.Raycast(ray, out RaycastHit hit, 3))
             return true;
         else
             return false;
     }
 }
 
-public class thiefCaught : Decision // question node // yes // found him?
+public class thiefCaught : Decision // question node // caught him?
 {
     Agent agent;
     Decision patrol;
-    Decision chase;
+    Decision seek;
     float sec = 0;
     public thiefCaught() { }
 
-    public thiefCaught(Agent agent, Decision patrolDecision, Decision chaseDecision)
+    public thiefCaught(Agent agent, Decision patrolDecision, Decision seekDecision)
     {
         this.agent = agent;
         patrol = patrolDecision;
-        chase = chaseDecision;
+        seek = seekDecision;
     }
 
     public Decision makeDecision()
@@ -90,13 +96,13 @@ public class thiefCaught : Decision // question node // yes // found him?
             sec += Time.deltaTime;
         else
             sec = 0;
-        if (sec > 5)
+        if (sec < 5)
         {
-            return patrol;
+            return seek;
         }
         else
         {
-            return chase;
+            return patrol;
         }
 
     }
@@ -104,53 +110,32 @@ public class thiefCaught : Decision // question node // yes // found him?
     bool thiefInView(Agent agent)
     {
         Ray ray = Camera.main.ScreenPointToRay(agent.target.position);
-        if (agent.target.position.x > agent.transform.forward.x - 2 && agent.target.position.x < agent.transform.forward.x + 2 && !Physics.Raycast(ray, out RaycastHit hit, 4))
+        if ((agent.target.position.x > agent.transform.forward.x - 2 || agent.target.position.x < agent.transform.forward.x + 2) && Physics.Raycast(ray, out RaycastHit hit, 3))
             return true;
         else
             return false;
     }
 }
 
-public class Patrol : Decision // answer node // yes // patrol
+public class Seek : Decision // answer node // seeking theif
 {
     Agent agent;
 
-    public Patrol() { }
+    public Seek() { }
 
-    public Patrol(Agent agent)
+    public Seek(Agent agent)
     {
         this.agent = agent;
     }
 
     public Decision makeDecision()
     {
-        agent.transform.position += agent.path[agent.idx].position * Time.deltaTime;
+        agent.transform.position += agent.target.position * agent.speed * Time.deltaTime;
         return null;
     }
 }
 
-public class Chase : Decision // answer node // no
-{
-    Agent agent;
-
-    public Chase() { }
-
-    public Chase(Agent agent)
-    {
-        this.agent = agent;
-    }
-
-    public Decision makeDecision()
-    {
-        agent.transform.position += agent.path[agent.idx].position * Time.deltaTime;
-        agent.idx++;
-        if (agent.idx >= agent.path.Count)
-            agent.idx = 0;
-        return null;
-    }
-}
-
-public class Waypoint : Decision //question node // no // reached waypoint?
+public class Waypoint : Decision //question node // reached waypoint?
 {
     Agent agent;
     Decision closeEnough;
@@ -167,7 +152,7 @@ public class Waypoint : Decision //question node // no // reached waypoint?
 
     public Decision makeDecision()
     {
-        if (agent.dj.atTarget(agent.transform, agent.target) == true)
+        if (agent.dj.atTarget(agent.transform, agent.target))
         {
             return closeEnough;
         }
@@ -180,7 +165,7 @@ public class Waypoint : Decision //question node // no // reached waypoint?
 
 }
 
-public class seekWayPoint : Decision //answer node // No // move towards waypoint
+public class seekWayPoint : Decision //answer node // move towards waypoint
 {
     Agent agent;
     public seekWayPoint() { }
@@ -197,7 +182,7 @@ public class seekWayPoint : Decision //answer node // No // move towards waypoin
     }
 }
 
-public class newWayPoint : Decision //answer node // yes // get new waypoint
+public class newWayPoint : Decision //answer node // get new waypoint
 {
     Agent agent;
 
@@ -210,8 +195,39 @@ public class newWayPoint : Decision //answer node // yes // get new waypoint
 
     public Decision makeDecision()
     {
-        agent.path = agent.dj.calculatePath(agent.transform, agent.target);
         agent.idx++;
+        if (agent.idx >= agent.path.Count)
+            agent.idx = 0;
+        agent.path = agent.dj.calculatePath(agent.transform, agent.pathObjects[agent.idx]);
         return null;
+    }
+}
+
+public class HavePath : Decision // question node // does the agent have a path
+{
+    Agent agent;
+    Decision yes;
+    Decision no;
+
+    public HavePath() { }
+
+    public HavePath(Agent agent, Decision yesDecision, Decision noDecision)
+    {
+        this.agent = agent;
+        yes = yesDecision;
+        no = noDecision;
+    }
+
+    public Decision makeDecision()
+    {
+        if (agent.path.Count <= 0)
+        {
+            return no;
+        }
+        else
+        {
+            return yes;
+        }
+
     }
 }

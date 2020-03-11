@@ -7,11 +7,12 @@ public class Agent : MonoBehaviour
     public Djikstra dj;
     public Vector3 velocity;
     public float mass;
-    public float maxSpeed;
+    public float speed;
     float maxForce = 0.5f;
     Vector3 steeringForces;
     public Transform target;
     public List<Transform> path;
+    public List<Transform> pathObjects;
     public int idx = 0;
     // Update is called once per frame
     void Update()

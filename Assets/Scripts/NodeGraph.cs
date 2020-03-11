@@ -5,20 +5,17 @@ using UnityEngine;
 public class NodeGraph : MonoBehaviour
 {
     public List<Node> nodes;
-    public Transform nodeObject;
     public List<Transform> nodeObjects;
-    public int row;
-    public int col;
-    Vector3 pos;
     // Update is called once per frame
-    void Start()
+    void Awake()
     {
         nodes = new List<Node>();
-        pos = new Vector3(0, 1, 0);
-        for (int i = 0; i < row * col; i++)
+        for (int i = 0; i < nodeObjects.Count; i++)
         {
-            Node temp = new Node();
-            temp.node = nodeObjects[i];
+            Node temp = new Node
+            {
+                node = nodeObjects[i]
+            };
             nodes.Add(temp);
 
         }
@@ -27,22 +24,22 @@ public class NodeGraph : MonoBehaviour
 
     void connectingNodes()
     {
-        int width = col;
-        for (int i = 0; i < row * col; i++)
+        float width = Mathf.Sqrt(nodeObjects.Count);
+        for (int i = 0; i < nodeObjects.Count; i++)
         {
-            if (!(i < width) && nodes[i].node.gameObject.tag == "Grid")//north
+            if (!(i < (int)width) && (nodes[i].node.gameObject.tag == "Grid" || nodes[i].node.gameObject.tag == "Exit"))//north
             {
-                nodes[i].Connections.Add(nodes[i - width]);
+                nodes[i].Connections.Add(nodes[i - (int)width]);
             }
-            if (i + width < col * row && nodes[i].node.gameObject.tag == "Grid")//south
+            if (i + (int)width < nodeObjects.Count && (nodes[i].node.gameObject.tag == "Grid" || nodes[i].node.gameObject.tag == "Exit"))//south
             {
-                nodes[i].Connections.Add(nodes[i + width]);
+                nodes[i].Connections.Add(nodes[i + (int)width]);
             }
-            if (i + 1 < col * row && nodes[i].node.gameObject.tag == "Grid")//east
+            if (i + 1 < nodeObjects.Count && (nodes[i].node.gameObject.tag == "Grid" || nodes[i].node.gameObject.tag == "Exit"))//east
             {
                 nodes[i].Connections.Add(nodes[i + 1]);
             }
-            if (!(i % width == 0) && nodes[i].node.gameObject.tag == "Grid")//west
+            if (!(i % (int)width == 0) && (nodes[i].node.gameObject.tag == "Grid" || nodes[i].node.gameObject.tag == "Exit"))//west
             {
                 nodes[i].Connections.Add(nodes[i - 1]);
             }

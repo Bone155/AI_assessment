@@ -4,33 +4,28 @@ using UnityEngine;
 
 public class Thief : MonoBehaviour
 {
-    Agent agent;
+    public Agent agent;
     public List<Transform> guards;
-    List<Transform> nearbyGuard;
     Decision root;
     public int score;
     // Start is called before the first frame update
     void Start()
     {
         score = 0;
-        agent = GetComponent<Agent>();
-        root = new Detected(agent,
+        root = new Detected(agent, guards,
                 new Caught(agent,
                     new Evade(agent),
                     new Busted(agent)),
-                new ThiefMovement(agent,
-                    new ThiefNewDestination(agent),
-                    new ThiefMove(agent)));
+                new guardNearby(agent, guards,
+                    new imporvisedPath(agent, guards),
+                    new ThiefMovement(agent,
+                        new ThiefExitPath(agent),
+                        new ThiefMove(agent))));
     }
 
     // Update is called once per frame
     void Update()
     {
-        getNearbyGuard(guards);
-        if (Input.GetMouseButtonDown(0))
-        {
-            agent.target.position = Input.mousePosition;
-        }
         Decision currentDecision = root;
         while (currentDecision != null)
         {
@@ -44,40 +39,35 @@ public class Thief : MonoBehaviour
         if (other.gameObject.tag == "Diamond")
         {
             Destroy(other);
-            score++;
+            score += 100;
         }
-    }
-
-    void getNearbyGuard(List<Transform> security)
-    {
-        for (int i = 0; i < security.Count; i++)
+        if (other.gameObject.tag == "Exit")
         {
-            if ((security[i].position.x < transform.position.x + 5 || security[i].position.x > transform.position.x - 5) && (security[i].position.z < transform.position.z + 5 || security[i].position.z > transform.position.z - 5))
-                nearbyGuard.Add(security[i]);
-            if ((security[i].position.x > transform.position.x + 5 || security[i].position.x < transform.position.x - 5) && (security[i].position.z > transform.position.z + 5 || security[i].position.z < transform.position.z - 5))
-                nearbyGuard.Remove(security[i]);
+            agent.speed = 0;
         }
-
     }
+
 }
 public class Detected : Decision // question node // have been detected?
 {
     Agent agent;
+    List<Transform> guards;
     Decision detected;
     Decision notDetected;
 
     public Detected() { }
 
-    public Detected(Agent agent, Decision detectedDecision, Decision notDetectedDecision)
+    public Detected(Agent agent, List<Transform> guards, Decision detectedDecision, Decision notDetectedDecision)
     {
         this.agent = agent;
+        this.guards = guards;
         detected = detectedDecision;
         notDetected = notDetectedDecision;
     }
 
     public Decision makeDecision()
     {
-        if (inView(agent))
+        if (inView(agent, guards))
         {
             return detected;
         }
@@ -87,17 +77,21 @@ public class Detected : Decision // question node // have been detected?
         }
     }
 
-    bool inView(Agent agent)
+    bool inView(Agent agent, List<Transform> guards)
     {
-        Ray ray = new Ray(agent.transform.position, agent.transform.forward);
-        if (agent.transform.position.x > agent.target.transform.forward.x - 2 && agent.transform.position.x < agent.target.transform.forward.x + 2 && Physics.Raycast(ray, out RaycastHit hit, 4))
-            return true;
-        else
-            return false;
+        bool spotted = false;
+        Ray ray;
+        for(int i = 0; i < guards.Count; i++)
+        {
+            ray = new Ray(guards[i].position, guards[i].forward);
+            if ((agent.transform.position.x > guards[i].forward.x - 2 || agent.transform.position.x < guards[i].forward.x + 2) && Physics.Raycast(ray, out RaycastHit hit, 3))
+                spotted = true;
+        }
+        return spotted;
     }
 }
 
-public class Caught : Decision // question node // yes
+public class Caught : Decision // question node // have been caught?
 {
     Agent agent;
     Decision busted;
@@ -126,7 +120,7 @@ public class Caught : Decision // question node // yes
     }
 }
 
-public class Evade : Decision // answer node // no // avoided capture
+public class Evade : Decision // answer node // avoided capture
 {
     Agent agent;
 
@@ -139,14 +133,17 @@ public class Evade : Decision // answer node // no // avoided capture
 
     public Decision makeDecision()
     {
-        agent.transform.position += agent.path[agent.idx].position;
         agent.idx++;
+        if (agent.idx >= agent.path.Count)
+            agent.idx = 0;
+        agent.transform.forward *= -1;
+        agent.transform.position += agent.path[agent.idx].position * agent.speed * Time.deltaTime;
         return null;
     }
 
 }
 
-public class Busted : Decision // answer node // yes
+public class Busted : Decision // answer node // got busted!
 {
     Agent agent;
 
@@ -160,11 +157,91 @@ public class Busted : Decision // answer node // yes
     public Decision makeDecision()
     {
         //Game over
+        agent.speed = 0;
         return null;
     }
 }
 
-public class ThiefMovement : Decision // question node // no // reached destination?
+public class guardNearby : Decision // question node // guard nearby?
+{
+    Agent agent;
+    List<Transform> guards;
+    Decision guardnear;
+    Decision path;
+
+    public guardNearby() { }
+
+    public guardNearby(Agent agent, List<Transform> guards, Decision guardnearDecision, Decision pathDecision)
+    {
+        this.agent = agent;
+        this.guards = guards;
+        guardnear = guardnearDecision;
+        path = pathDecision;
+    }
+
+    public Decision makeDecision()
+    {
+        Vector3 guard = new Vector3();
+        for (int i = 0; i < guards.Count; i++)
+        {
+            if (nearbyGuard(guards[i].position))
+            {
+                guard = guards[i].position;
+            }
+        }
+        if (nearbyGuard(guard))
+        {
+            return guardnear;
+        }
+        else
+        {
+            return path;
+        }
+    }
+
+    bool nearbyGuard(Vector3 guard)
+    {
+        if ((guard.x < agent.transform.position.x + 5 || guard.x > agent.transform.position.x - 5) && (guard.z < agent.transform.position.z + 5 || guard.z > agent.transform.position.z - 5))
+            return true;
+        else
+            return false;
+    }
+}
+
+public class imporvisedPath : Decision // answer node // calculate new path to target
+{
+    Agent agent;
+    List<Transform> guards;
+    public imporvisedPath() { }
+
+    public imporvisedPath(Agent agent, List<Transform> guards)
+    {
+        this.agent = agent;
+        this.guards = guards;
+    }
+
+    public Decision makeDecision()
+    {
+        Vector3 guard = nearestGuard(guards);
+        agent.path = agent.dj.improvisedPath(agent.transform, agent.target, guard);
+        return null;
+    }
+
+    Vector3 nearestGuard(List<Transform> guards)
+    {
+        Vector3 guard = new Vector3();
+        for(int i = 0; i < guards.Count; i++)
+        {
+            if ((guards[i].position.x < agent.transform.position.x + 5 || guards[i].position.x > agent.transform.position.x - 5) && (guards[i].position.z < agent.transform.position.z + 5 || guards[i].position.z > agent.transform.position.z - 5))
+            {
+                guard = guards[i].position;
+            }
+        }
+        return guard;
+    }
+}
+
+public class ThiefMovement : Decision // question node // reached end of path?
 {
     Agent agent;
     Decision closeEnough;
@@ -193,29 +270,27 @@ public class ThiefMovement : Decision // question node // no // reached destinat
     }
 }
 
-public class ThiefNewDestination : Decision // answer node // yes // set new destination (left mouse button click position)
+public class ThiefExitPath : Decision // answer node // set exit path
 {
     Agent agent;
 
-    public ThiefNewDestination() { }
+    public ThiefExitPath() { }
 
-    public ThiefNewDestination(Agent agent)
+    public ThiefExitPath(Agent agent)
     {
         this.agent = agent;
     }
 
     public Decision makeDecision()
     {
-        if (Input.GetMouseButtonDown(0))
-        {
-            agent.target.position = Input.mousePosition;
-        }
+        GameObject exit = GameObject.FindGameObjectWithTag("Exit");
+        agent.target = exit.transform;
         agent.path = agent.dj.calculatePath(agent.transform, agent.target);
         return null;
     }
 }
 
-public class ThiefMove : Decision // answer node // no // move towards destination (a.k.a the mouse position)
+public class ThiefMove : Decision // answer node // follow path
 {
     Agent agent;
     public ThiefMove() { }
@@ -227,9 +302,10 @@ public class ThiefMove : Decision // answer node // no // move towards destinati
 
     public Decision makeDecision()
     {
-        agent.transform.position += agent.path[agent.idx].position * Time.deltaTime;
         agent.idx++;
+        if (agent.idx >= agent.path.Count)
+            agent.idx = 0;
+        agent.transform.position += agent.path[agent.idx].position * agent.speed * Time.deltaTime;
         return null;
     }
 }
-

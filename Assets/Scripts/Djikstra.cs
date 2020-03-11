@@ -5,59 +5,53 @@ using UnityEngine;
 public class Djikstra : MonoBehaviour
 {
     public NodeGraph graph;
-    List<Node> open;
-    List<Node> close;
+    List<Node> open = new List<Node>();
+    List<Node> close = new List<Node>();
     Node cur;
-    Node tile_target;
-    Node startTile;
-
-    // Start is called before the first frame update
-    void Start()
-    {
-        open = new List<Node>();
-        close = new List<Node>();
-    }
+    Node node_target;
+    Node startNode;
 
     public bool atTarget(Transform pos, Transform target)
     {
-        if (pos.position.x <= getTargetTile(graph.nodes, target).node.position.x + 0.5 && pos.position.z <= getTargetTile(graph.nodes, target).node.position.z + 0.5 && pos.position.x >= getTargetTile(graph.nodes, target).node.position.x - 0.5 && pos.position.z >= getTargetTile(graph.nodes, target).node.position.z - 0.5)
+        if (pos.position.x <= getNode(graph.nodes, target).node.position.x + 0.5 && pos.position.z <= getNode(graph.nodes, target).node.position.z + 0.5 && pos.position.x >= getNode(graph.nodes, target).node.position.x - 0.5 && pos.position.z >= getNode(graph.nodes, target).node.position.z - 0.5)
             return true;
         else
             return false;
     }
 
-    public Node getStartTile(List<Node> tiles, Transform startPos)
+    public Node getNode(List<Node> nodes, Transform pos)
     {
-        Node startTile = new Node();
-        for (int i = 0; i < tiles.Count; i++)
+        Node node = new Node();
+        for (int i = 0; i < nodes.Count; i++)
         {
-            if (startPos.position.x <= tiles[i].node.position.x + 0.5 && startPos.position.z <= tiles[i].node.position.z + 0.5 && startPos.position.x >= tiles[i].node.position.x - 0.5 && startPos.position.z >= tiles[i].node.position.z - 0.5)
+            if (pos.position.x <= nodes[i].node.position.x + 0.5 && pos.position.z <= nodes[i].node.position.z + 0.5 && pos.position.x >= nodes[i].node.position.x - 0.5 && pos.position.z >= nodes[i].node.position.z - 0.5)
             {
-                startTile = tiles[i];
+                node = nodes[i];
             }
         }
-        return startTile;
+        return node;
     }
 
-    public Node getTargetTile(List<Node> tiles, Transform targetPos)
+    public Node getNode(List<Node> nodes, Vector3 pos)
     {
-        Node targetTile = new Node();
-        for (int i = 0; i < tiles.Count; i++)
+        Node node = new Node();
+        for (int i = 0; i < nodes.Count; i++)
         {
-            if (targetPos.position.x <= tiles[i].node.position.x + 0.5 && targetPos.position.z <= tiles[i].node.position.z + 0.5 && targetPos.position.x >= tiles[i].node.position.x - 0.5 && targetPos.position.z >= tiles[i].node.position.z - 0.5)
+            if (pos.x <= nodes[i].node.position.x + 0.5 && pos.z <= nodes[i].node.position.z + 0.5 && pos.x >= nodes[i].node.position.x - 0.5 && pos.z >= nodes[i].node.position.z - 0.5)
             {
-                targetTile = tiles[i];
+                node = nodes[i];
             }
         }
-        return targetTile;
+        return node;
     }
 
-    public List<Transform> calculatePath(Transform start, Transform target)
+    public List<Transform> improvisedPath(Transform start, Transform target, Vector3 guard)
     {
-        startTile = getStartTile(graph.nodes, start);
-        startTile.gScore = 0;
-        tile_target = getTargetTile(graph.nodes, target);
-        open.Add(startTile);
+        Node guardNode = getNode(graph.nodes, guard);
+        startNode = getNode(graph.nodes, start);
+        startNode.gScore = 0;
+        node_target = getNode(graph.nodes, target);
+        open.Add(startNode);
         while (open.Count > 0)
         {
             cur = open[0];
@@ -68,12 +62,64 @@ public class Djikstra : MonoBehaviour
 
             for (int i = 0; i < cur.Connections.Count; i++)
             {
-                if (cur == tile_target)
+                if (cur == node_target)
                 {
-                    if (cur.gScore < tile_target.gScore)
+                    if (cur.gScore < node_target.gScore)
                     {
-                        tile_target.gScore = cur.gScore;
-                        tile_target.previous = cur;
+                        node_target.gScore = cur.gScore;
+                        node_target.previous = cur;
+                    }
+                }
+                if(cur == guardNode)
+                {
+                    cur.Connections[i].gScore += 10000;
+                    cur.Connections[i].previous = cur;
+                    open.Add(cur.Connections[i]);
+                }
+                else if (cur.gScore + 1 < cur.Connections[i].gScore)
+                {
+                    cur.Connections[i].gScore = cur.gScore + 1;
+                    cur.Connections[i].previous = cur;
+                    open.Add(cur.Connections[i]);
+                }
+            }
+
+            gScoreSort(open);
+        }
+        List<Transform> targetPath = new List<Transform>();
+        while (cur != null && cur != startNode)
+        {
+            Node node = cur.previous;
+            targetPath.Add(cur.node);
+            cur = node;
+        }
+        targetPath.Reverse();
+        close.Clear();
+        return targetPath;
+    }
+
+    public List<Transform> calculatePath(Transform start, Transform target)
+    {
+        startNode = getNode(graph.nodes, start);
+        startNode.gScore = 0;
+        node_target = getNode(graph.nodes, target);
+        open.Add(startNode);
+        while (open.Count > 0)
+        {
+            cur = open[0];
+            open.RemoveAt(0);
+            close.Add(cur);
+
+            // TODO: iterate through connections by using cur.Connections
+
+            for (int i = 0; i < cur.Connections.Count; i++)
+            {
+                if (cur == node_target)
+                {
+                    if (cur.gScore < node_target.gScore)
+                    {
+                        node_target.gScore = cur.gScore;
+                        node_target.previous = cur;
                     }
                 }
                 if (cur.gScore + 1 < cur.Connections[i].gScore)
@@ -88,7 +134,7 @@ public class Djikstra : MonoBehaviour
         }
 
         List<Transform> targetPath = new List<Transform>();
-        while (cur != null && cur != startTile)
+        while (cur != null && cur != startNode)
         {
             Node node = cur.previous;
             targetPath.Add(cur.node);
@@ -101,28 +147,14 @@ public class Djikstra : MonoBehaviour
 
     void gScoreSort(List<Node> list)
     {
-        for (int j = 0; j < list.Count; j++)
+        for (int i = 1; i < list.Count; i++)
         {
-            if (j - 1 >= 0)
+            if (list[i].gScore < list[i - 1].gScore)
             {
-                if (list[j].gScore > list[j - 1].gScore)
-                {
-                    Node temp = list[j];
-                    list[j] = list[j - 1];
-                    list[j - 1] = temp;
-                }
+                Node temp = list[i];
+                list[i] = list[i - 1];
+                list[i - 1] = temp;
             }
-        }
-    }
-
-    void displayPath(List<Node> path)
-    {
-        float height = 0.0f;
-        for (int i = 0; i < path.Count; i++)
-        {
-            height = path[i].node.position.y;
-            height += 1;
-            Debug.DrawLine(new Vector3(path[i].node.position.x, height, path[i].node.position.z), new Vector3(path[i].previous.node.position.x, height, path[i].previous.node.position.z), Color.red);
         }
     }
 
