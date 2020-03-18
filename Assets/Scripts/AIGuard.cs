@@ -15,14 +15,14 @@ public class AIGuard : MonoBehaviour
     void Start()
     {
         root = new Discovered(agent, 
-                new thiefCaught(agent, 
-                    new newWayPoint(agent), 
-                    new Seek(agent)),
-                new Waypoint(agent, 
-                    new newWayPoint(agent), 
-                    new HavePath(agent, 
-                        new seekWayPoint(agent),
-                        new newWayPoint(agent))));
+                new thiefCaught(agent, //yes
+                    new newWayPoint(agent), //no
+                    new seekTarget(agent)), //yes
+                new Waypoint(agent, //no
+                    new newWayPoint(agent), //yes
+                    new HavePath(agent, //no
+                        new seekWayPoint(agent), //yes
+                        new newWayPoint(agent)))); //no
     }
 
     // Update is called once per frame
@@ -117,21 +117,35 @@ public class thiefCaught : Decision // question node // caught him?
     }
 }
 
-public class Seek : Decision // answer node // seeking theif
+public class seekTarget : Decision // answer node // seeking theif
 {
     Agent agent;
 
-    public Seek() { }
+    public seekTarget() { }
 
-    public Seek(Agent agent)
+    public seekTarget(Agent agent)
     {
         this.agent = agent;
     }
 
     public Decision makeDecision()
     {
-        agent.transform.position += agent.target.position * agent.speed * Time.deltaTime;
+        if (agent.idx >= agent.path.Count)
+            agent.idx = 0;
+        Vector3 force = desiredVelocity - agent.velocity;
+        agent.velocity += force * Time.deltaTime;
+        agent.transform.position += agent.velocity * Time.deltaTime;
+        agent.transform.rotation = Quaternion.LookRotation(desiredVelocity);
+        agent.idx++;
         return null;
+    }
+
+    Vector3 desiredVelocity
+    {
+        get
+        {
+            return (agent.target.position - agent.transform.position).normalized * agent.speed;
+        }
     }
 }
 
@@ -177,8 +191,22 @@ public class seekWayPoint : Decision //answer node // move towards waypoint
 
     public Decision makeDecision()
     {
-        agent.transform.position += agent.path[agent.idx].position * Time.deltaTime;
+        if (agent.idx >= agent.path.Count)
+            agent.idx = 0;
+        Vector3 force = desiredVelocity - agent.velocity;
+        agent.velocity += force * Time.deltaTime;
+        agent.transform.position += agent.velocity * Time.deltaTime;
+        agent.transform.rotation = Quaternion.LookRotation(desiredVelocity);
+        agent.idx++;
         return null;
+    }
+
+    Vector3 desiredVelocity
+    {
+        get
+        {
+            return (agent.path[agent.idx].position - agent.transform.position).normalized * agent.speed;
+        }
     }
 }
 
@@ -195,7 +223,6 @@ public class newWayPoint : Decision //answer node // get new waypoint
 
     public Decision makeDecision()
     {
-        agent.idx++;
         if (agent.idx >= agent.path.Count)
             agent.idx = 0;
         agent.path = agent.dj.calculatePath(agent.transform, agent.pathObjects[agent.idx]);

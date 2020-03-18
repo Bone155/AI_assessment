@@ -13,14 +13,14 @@ public class Thief : MonoBehaviour
     {
         score = 0;
         root = new Detected(agent, guards,
-                new Caught(agent,
-                    new Evade(agent),
-                    new Busted(agent)),
-                new guardNearby(agent, guards,
-                    new imporvisedPath(agent, guards),
-                    new ThiefMovement(agent,
-                        new ThiefExitPath(agent),
-                        new ThiefMove(agent))));
+                new Caught(agent, //yes
+                    new imporvisedPath(agent, guards), //no
+                    new Busted(agent)), //yes
+                new guardNearby(agent, guards, //no
+                    new imporvisedPath(agent, guards), //yes
+                    new ThiefMovement(agent, //no
+                        new ThiefExitPath(agent), //yes
+                        new ThiefMove(agent)))); //no
     }
 
     // Update is called once per frame
@@ -118,29 +118,6 @@ public class Caught : Decision // question node // have been caught?
         }
 
     }
-}
-
-public class Evade : Decision // answer node // avoided capture
-{
-    Agent agent;
-
-    public Evade() { }
-
-    public Evade(Agent agent)
-    {
-        this.agent = agent;
-    }
-
-    public Decision makeDecision()
-    {
-        agent.idx++;
-        if (agent.idx >= agent.path.Count)
-            agent.idx = 0;
-        agent.transform.forward *= -1;
-        agent.transform.position += agent.path[agent.idx].position * agent.speed * Time.deltaTime;
-        return null;
-    }
-
 }
 
 public class Busted : Decision // answer node // got busted!
@@ -302,10 +279,21 @@ public class ThiefMove : Decision // answer node // follow path
 
     public Decision makeDecision()
     {
-        agent.idx++;
         if (agent.idx >= agent.path.Count)
             agent.idx = 0;
-        agent.transform.position += agent.path[agent.idx].position * agent.speed * Time.deltaTime;
+        Vector3 force = desiredVelocity - agent.velocity;
+        agent.velocity += force * Time.deltaTime;
+        agent.transform.position += agent.velocity * Time.deltaTime;
+        agent.transform.rotation = Quaternion.LookRotation(desiredVelocity);
+        agent.idx++;
         return null;
+    }
+
+    Vector3 desiredVelocity
+    {
+        get
+        {
+            return (agent.path[agent.idx].position - agent.transform.position).normalized * agent.speed;
+        }
     }
 }
