@@ -109,7 +109,7 @@ public class thiefCaught : Decision // question node // caught him?
 
     bool thiefInView(Agent agent)
     {
-        Ray ray = Camera.main.ScreenPointToRay(agent.target.position);
+        Ray ray = new Ray(agent.transform.position, agent.transform.forward);
         if ((agent.target.position.x > agent.transform.forward.x - 2 || agent.target.position.x < agent.transform.forward.x + 2) && Physics.Raycast(ray, out RaycastHit hit, 3))
             return true;
         else

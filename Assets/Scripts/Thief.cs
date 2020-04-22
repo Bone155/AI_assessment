@@ -12,15 +12,17 @@ public class Thief : MonoBehaviour
     void Start()
     {
         score = 0;
-        root = new Detected(agent, guards,
-                new Caught(agent, //yes
-                    new imporvisedPath(agent, guards), //no
-                    new Busted(agent)), //yes
-                new guardNearby(agent, guards, //no
-                    new imporvisedPath(agent, guards), //yes
-                    new ThiefMovement(agent, //no
-                        new ThiefExitPath(agent), //yes
-                        new ThiefMove(agent)))); //no
+        root = new guardNearby(agent, guards,
+                new Detected(agent, guards, //yes
+                    new Caught(agent, //yes
+                        new Busted(agent), //yes
+                        new HavePath(agent, //no
+                            new ThiefMove(agent), // yes
+                            new imporvisedPath(agent, guards))), //no
+                    new ThiefMove(agent)), //no
+                new ThiefMovement(agent, //no
+                    new ThiefExitPath(agent), //yes
+                    new ThiefMove(agent))); //no
     }
 
     // Update is called once per frame
@@ -48,6 +50,7 @@ public class Thief : MonoBehaviour
     }
 
 }
+
 public class Detected : Decision // question node // have been detected?
 {
     Agent agent;
@@ -209,7 +212,7 @@ public class imporvisedPath : Decision // answer node // calculate new path to t
         Vector3 guard = new Vector3();
         for(int i = 0; i < guards.Count; i++)
         {
-            if ((guards[i].position.x < agent.transform.position.x + 5 || guards[i].position.x > agent.transform.position.x - 5) && (guards[i].position.z < agent.transform.position.z + 5 || guards[i].position.z > agent.transform.position.z - 5))
+            if ((guards[i].position.x < agent.transform.position.x + 4 || guards[i].position.x > agent.transform.position.x - 4) && (guards[i].position.z < agent.transform.position.z + 4 || guards[i].position.z > agent.transform.position.z - 4))
             {
                 guard = guards[i].position;
             }
